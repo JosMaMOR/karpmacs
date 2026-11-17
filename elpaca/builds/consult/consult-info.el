@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/consult/consult-info.el

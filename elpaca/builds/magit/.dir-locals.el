@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/magit/.dir-locals.el

@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/magit/lisp/git-commit.el

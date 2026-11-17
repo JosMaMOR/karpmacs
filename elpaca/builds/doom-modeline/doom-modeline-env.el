@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/doom-modeline/doom-modeline-env.el

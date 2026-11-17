@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/company-mode/company-gtags.el

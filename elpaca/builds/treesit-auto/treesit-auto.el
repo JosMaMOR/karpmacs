@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/treesit-auto/treesit-auto.el

@@ -1,0 +1,4 @@
+/ssh:karpa@192.168.88.15:/etc/fstab
+/tmp/#!ssh:karpa@192.168.88.15:!etc!fstab#
+/home/karpa/.config/hypr/hyprland.lua
+/home/karpa/.config/hypr/#hyprland.lua#

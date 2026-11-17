@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/treemacs/src/elisp/treemacs-core-utils.el

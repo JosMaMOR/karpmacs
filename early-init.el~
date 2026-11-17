@@ -1,0 +1,12 @@
+(setq inhibit-startup-screen t)
+(setq inhibit-startup-message t)
+(setq package-enable-at-startup nil)
+
+;; early-init.el
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+
+(set-face-attribute 'default nil
+                    :background "#1e1e1e"
+                    :foreground "#d4d4d4")

@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/modus-themes/modus-vivendi-theme.el

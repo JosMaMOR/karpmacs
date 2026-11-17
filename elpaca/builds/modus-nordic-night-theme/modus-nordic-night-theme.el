@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/modus-nordic-night/modus-nordic-night-theme.el

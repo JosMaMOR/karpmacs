@@ -1,0 +1,408 @@
+;;; -*- lexical-binding: t; -*-
+;;; =========================
+;;; 0. Index
+;;; ========================
+;;; Sección 1  - Bootstrap de elpaca + use-package
+;;; Sección 11 - Org Config
+;;;
+;;; =========================
+;;; 1. PACKAGE SYSTEM (elpaca)
+;;; =========================
+;; NOTA: elpaca reemplaza a package.el. Sigue usando MELPA y GNU ELPA como
+;; fuentes, pero además puede instalar paquetes directo de git (GitHub, Codeberg).
+;; IMPORTANTE: verifica que `elpaca-installer-version` coincida con el del
+;; README oficial (github.com/progfolio/elpaca) por si cambió.
+
+(defvar elpaca-installer-version 0.12)
+(defvar elpaca-directory (expand-file-name "elpaca/" user-emacs-directory))
+(defvar elpaca-builds-directory (expand-file-name "builds/" elpaca-directory))
+(defvar elpaca-sources-directory (expand-file-name "sources/" elpaca-directory))
+(defvar elpaca-order '(elpaca :repo "https://github.com/progfolio/elpaca.git"
+                              :ref nil :depth 1 :inherit ignore
+                              :files (:defaults "elpaca-test.el" (:exclude "extensions"))
+                              :build (:not elpaca-activate)))
+(let* ((repo  (expand-file-name "elpaca/" elpaca-sources-directory))
+       (build (expand-file-name "elpaca/" elpaca-builds-directory))
+       (order (cdr elpaca-order))
+       (default-directory repo))
+  (add-to-list 'load-path (if (file-exists-p build) build repo))
+  (unless (file-exists-p repo)
+    (make-directory repo t)
+    (when (<= emacs-major-version 28) (require 'subr-x))
+    (condition-case-unless-debug err
+        (if-let* ((buffer (pop-to-buffer-same-window "*elpaca-bootstrap*"))
+                  ((zerop (apply #'call-process `("git" nil ,buffer t "clone"
+                                                  ,@(when-let* ((depth (plist-get order :depth)))
+                                                      (list (format "--depth=%d" depth) "--no-single-branch"))
+                                                  ,(plist-get order :repo) ,repo))))
+                  ((zerop (call-process "git" nil buffer t "checkout"
+                                        (or (plist-get order :ref) "--"))))
+                  (emacs (concat invocation-directory invocation-name))
+                  ((zerop (call-process emacs nil buffer nil "-Q" "-L" "." "--batch"
+                                        "--eval" "(byte-recompile-directory \".\" 0 'force)")))
+                  ((require 'elpaca))
+                  ((elpaca-generate-autoloads "elpaca" repo)))
+            (progn (message "%s" (buffer-string)) (kill-buffer buffer))
+          (error "%s" (with-current-buffer buffer (buffer-string))))
+      ((error) (warn "%s" err) (delete-directory repo 'recursive))))
+  (unless (require 'elpaca-autoloads nil t)
+    (require 'elpaca)
+    (elpaca-generate-autoloads "elpaca" repo)
+    (let ((load-source-file-function nil)) (load "./elpaca-autoloads"))))
+(add-hook 'after-init-hook #'elpaca-process-queues)
+(elpaca `(,@elpaca-order))
+
+;; Integración con use-package
+(elpaca elpaca-use-package
+  (elpaca-use-package-mode))
+
+;; Hace que cada use-package se instale con elpaca por defecto.
+;; (En versiones actuales de elpaca se usa `use-package-always-ensure`
+;;  en lugar de `elpaca-use-package-by-default`.)
+;; Los paquetes BUILT-IN (org, autoinsert) deben marcarse con `:ensure nil`.
+(setq use-package-always-ensure t)
+
+;; Espera a que elpaca y use-package estén listos antes de seguir.
+(elpaca-wait)
+
+
+;;; =========================
+;;; 1b. FUNCIONES / SKELETONS
+;;; =========================
+;; Definido a nivel superior (no depende de ningún paquete) para que esté
+;; disponible cuando auto-insert lo invoque, sin problemas de orden de carga.
+
+(define-skeleton my/org-template
+  "Inserta la cabecera estándar de documentos Org."
+  nil
+  "#+title: " (skeleton-read "Título: ") "\n"
+  "#+author: Karpa\n"
+  "#+description: " (skeleton-read "Descripción: ") "\n"
+  "#+filetags: " (skeleton-read "Tags: ") "\n"
+  "#+startup: overview indent\n"
+  "#+options: toc:t num:t\n"
+  "#+language: es\n"
+  "\n")
+
+
+;;; =========================
+;;; 1c. PAQUETES BASE
+;;; =========================
+(use-package transient)
+(use-package magit
+  :bind ("C-x g" . magit-status))
+
+;; auto-insert es BUILT-IN -> :ensure nil
+(use-package autoinsert
+  :ensure nil
+  :config
+  (auto-insert-mode 1)
+  (setq auto-insert-query nil) ;; no preguntar, insertar directo
+  (define-auto-insert "\\.org\\'" #'my/org-template))
+
+(use-package kkp
+  :ensure t
+  :hook (tty-setup . global-kkp-mode)
+  :config
+  ;; (setq kkp-alt-modifier 'alt) ;; use this if you want to map the Alt keyboard modifier to Alt in Emacs (and not to Meta)
+
+  ;; For C-g aborting blocking subprocesses, see "C-g and blocking
+  ;; subprocesses" in the README.
+  ;; (setq kkp-restore-legacy-keys-around-subprocesses t)
+  )
+
+;;; =========================
+;;; 2. CORE SETTINGS
+;;; =========================
+
+(setq inhibit-startup-message t)
+(setq ring-bell-function 'ignore)
+
+(use-package exec-path-from-shell
+  :config
+  (exec-path-from-shell-initialize))
+
+(setq split-width-threshold nil)
+(setq split-height-threshold 0)
+
+(use-package clipetty
+  :hook (after-init . global-clipetty-mode))
+
+;;; =========================
+;;; 3. UI / APPEARANCE
+;;; =========================
+
+;; Tema desde Codeberg. elpaca clona el repo y resuelve su dependencia
+;; (modus-themes) automáticamente desde GNU ELPA / MELPA.
+;; load-theme va en :config para que corra DESPUÉS de instalar el paquete.
+(use-package modus-nordic-night-theme
+  :ensure (:host codeberg :repo "ashton314/modus-nordic-night")
+  :config
+  (load-theme 'modus-nordic-midnight t))
+  ;; Alternativa más oscura (pitch-black):
+  ;; (load-theme 'modus-nordic-midnight t))
+
+;; Font (tolerante: si no existe la fuente, no rompe el arranque)
+(when (member "JetBrainsMono Nerd Font" (font-family-list))
+  (set-face-attribute 'default nil
+                      :font "JetBrainsMono Nerd Font 12"))
+
+;; Minimal UI
+(menu-bar-mode -1)
+(tool-bar-mode -1)
+(scroll-bar-mode -1)
+
+;; Line numbers
+(setq display-line-numbers-type 'relative)
+(global-display-line-numbers-mode 1)
+
+
+;;; =========================
+;;; 4. COMPLETION & SEARCH
+;;; =========================
+
+(use-package vertico
+  :config
+  (vertico-mode))
+
+(use-package consult
+  :config
+  ;; Better buffer switching
+  (global-set-key (kbd "C-x b") 'consult-buffer))
+
+
+;;; =========================
+;;; 5. ICONS & MODEL
+;;; =========================
+
+(use-package all-the-icons)
+
+(use-package doom-modeline
+  :custom
+  (doom-modeline-height 25)
+  (doom-modeline-bar-width 3)
+  (doom-modeline-buffer-file-name-style 'truncate-upto-project)
+  (doom-modeline-column-zero-based t)
+  (doom-modeline-github t)
+  :config
+  (doom-modeline-mode 1)
+  (column-number-mode 1))
+
+;;; =========================
+;;; 6. DASHBOARD
+;;; =========================
+
+(use-package dashboard
+  :custom
+  (dashboard-items '((recents  . 5)
+                     (projects . 5)
+                     (agenda . 5)))
+  (dashboard-startup-banner 'official)
+  (dashboard-center-content t)
+  :config
+  (dashboard-setup-startup-hook))
+
+(defun my/open-dashboard-in-empty-frame (frame)
+  (with-selected-frame frame
+    (when (and (not (minibufferp))
+               (= (length (window-list)) 1)
+               (string= (buffer-name) "*scratch*"))
+      (dashboard-open))))
+
+(add-hook 'after-make-frame-functions #'my/open-dashboard-in-empty-frame)
+
+;;; =========================
+;;; 7. VTERM
+;;; =========================
+
+(use-package vterm
+  :ensure t
+  :commands vterm)
+
+;;; =========================
+;;; 8. LANGUAGES
+;;; =========================
+
+(use-package rust-mode)
+
+
+;;; =========================
+;;; 9. Treesiter y LSP
+;;; =========================
+
+(use-package treesit-auto
+  :config
+  (setq treesit-auto-install 'prompt) ;; te pregunta antes de instalar gramáticas
+  (global-treesit-auto-mode))
+
+(use-package lsp-mode
+  :commands lsp
+  :hook ((python-ts-mode . lsp)
+         (rust-ts-mode . lsp)
+         (json-ts-mode . lsp)
+         (yaml-ts-mode . lsp)
+         (dockerfile-ts-mode . lsp)
+         (bash-ts-mode . lsp))
+  :config
+  (setq lsp-headerline-breadcrumb-enable nil))
+
+(use-package lsp-ui
+  :commands lsp-ui-mode)
+
+(use-package company
+  :config
+  (global-company-mode))
+
+
+;;; =========================
+;;; 10. KEYBINDINGS
+;;; =========================
+;; Paquetes referenciados por los binds: se declaran para que elpaca los instale.
+(use-package treemacs)
+(use-package restart-emacs)
+
+(use-package which-key
+  :config
+  (which-key-mode))
+
+(use-package general
+  :ensure (:wait t)
+  :demand t
+  :config
+  (general-create-definer my/leader
+    :prefix "C-c")
+
+  ;; Las definiciones de teclas van DENTRO de :config para garantizar que
+  ;; `general` ya esté cargado cuando se evalúan (elpaca carga async).
+  (my/leader
+    ;; Terminal
+    "t" '(vterm :which-key "open vterm")
+
+    ;; Rotate buffers
+    "r" '(rotate-windows :which-key "rotar ventanas")
+    "R" '(rotate-windows-back :which-key "rotar atrás")
+    
+    ;; Buffers
+    "b" '(:ignore t :which-key "buffers")
+    "b t" '(tab-bar-mode :which-key "toggle tab mode")
+    "b o" '(treemacs :which-key "toggle treemacs")
+
+    ;; Config
+    "x" '(:ignore t :which-key "config")
+    "x r" '(restart-emacs :which-key "restart emacs")
+    "x d" '(dired :which-key "Open Dired")
+
+    ;; Org
+    "o" '(:ignore t :which-key "org")
+    "o c" '(org-capture :which-key "capture")
+    "o a" '(org-agenda :which-key "agenda")
+    "o l" '(org-store-link :which-key "store link")
+    "o f" '(consult-org-heading :which-key "find heading")
+    "o t" '(my/org-template :which-key "insertar cabecera org")
+
+    ;; Misc
+    "s" '(consult-ripgrep :which-key "Fuzzy find")))
+
+
+;;; =========================
+;;; 11. ORG MODE
+;;; =========================
+
+;; org-modern (paquete externo)
+(use-package org-modern
+  :after org
+  :config
+  (global-org-modern-mode))
+
+;; org es BUILT-IN -> :ensure nil para usar el que trae Emacs
+(use-package org
+  :ensure nil
+  :config
+  ;; Directorio base — usado por org-roam y otros paquetes como referencia
+  (setq org-directory "~/Dropbox/TypeR")
+  (add-hook 'org-mode-hook #'visual-line-mode)
+  (setq org-hide-emphasis-markers t)  ;; oculta los *marcadores* del markup
+  (setq org-src-tab-acts-natively t)  ;; TAB nativo dentro de bloques SRC
+
+  ;; Archivos que la Agenda escanea
+  (setq org-agenda-files (list "~/Dropbox/TypeR"))
+
+  (setq org-capture-templates
+        '(("t" "TODO" entry
+           (file+headline "~/Dropbox/TypeR/todo.org" "Inbox")
+           "* TODO %?\n %a\n %U\n")
+          ("n" "Nota" entry
+           (file+headline "~/Dropbox/TypeR/notas.org" "Inbox")
+           "* %?\n  %U\n")
+          ("d" "Tarea con deadline" entry
+           (file+headline "~/Dropbox/TypeR/agenda.org" "Inbox")
+           "* TODO %^{Título}\n  :PROPERTIES:\n  :PROYECTO: %^{Proyecto|tesis|homelab|personal}\n  :END:\n  DEADLINE: %^t\n  %?")
+          ("e" "Evento" entry
+           (file+headline "~/Dropbox/TypeR/agenda.org" "Eventos")
+           "* %^{Título}\n  :PROPERTIES:\n  :PROYECTO: %^{Proyecto|tesis|homelab|personal}\n  :END:\n  SCHEDULED: %^T\n  %?")))
+
+  (setq org-todo-keywords
+        '((sequence "TODO" "PROGRESO" "ESPERA" "|" "HECHO" "CANCELADO"))))
+
+;;; =========================
+;;; LaTex
+;;; =========================
+
+;; ---------- AUCTeX ----------
+(use-package tex
+  :ensure auctex                     ; el paquete se llama auctex, la feature tex
+  :defer t
+  :hook ((LaTeX-mode . turn-on-reftex)
+         (LaTeX-mode . LaTeX-math-mode)
+         (LaTeX-mode . TeX-source-correlate-mode)   ; sincroniza .tex <-> PDF
+         (LaTeX-mode . flyspell-mode)
+         (LaTeX-mode . (lambda ()
+                         (setq TeX-command-default "LatexMk"))))
+  :custom
+  (TeX-auto-save t)                  ; guarda información de los paquetes que usas
+  (TeX-parse-self t)                 ; analiza el documento al abrirlo
+  (TeX-master "main")                ; los capítulos compilan main.tex
+  (TeX-save-query nil)               ; guarda sin preguntar al compilar
+  (TeX-source-correlate-start-server t)
+  (TeX-view-program-selection '((output-pdf "PDF Tools")))
+  (reftex-plug-into-AUCTeX t)
+  :config
+  (add-to-list 'TeX-command-list
+               '("LatexMk" "latexmk %t" TeX-run-TeX nil t
+                 :help "Compilar con latexmk (usa .latexmkrc)"))
+  ;; recarga el PDF automáticamente tras compilar
+  (add-hook 'TeX-after-compilation-finished-functions
+            #'TeX-revert-document-buffer))
+
+;; ---------- Visor de PDF ----------
+(use-package pdf-tools
+  :ensure t
+  :defer t
+  :init
+  (pdf-loader-install))              ; no bloquea el arranque del daemon
+
+;; ---------- Ortografía en español ----------
+(use-package ispell
+  :ensure nil                        ; viene con Emacs
+  :custom
+  (ispell-program-name "hunspell")
+  (ispell-dictionary "es_MX"))
+
+;;; =========================
+;;; 12. CUSTOM (AUTO)
+;;; =========================
+
+(custom-set-variables
+ ;; custom-set-variables was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ '(auth-source-save-behavior nil)
+ '(fancy-splash-image nil))
+
+(custom-set-faces
+ ;; custom-set-faces was added by Custom.
+ ;; If you edit it by hand, you could mess it up, so be careful.
+ ;; Your init file should contain only one such instance.
+ ;; If there is more than one, they won't work right.
+ )

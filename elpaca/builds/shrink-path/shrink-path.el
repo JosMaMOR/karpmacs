@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/shrink-path/shrink-path.el

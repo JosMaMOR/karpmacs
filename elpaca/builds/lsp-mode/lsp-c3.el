@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/lsp-mode/clients/lsp-c3.el

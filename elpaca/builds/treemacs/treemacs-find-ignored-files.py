@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/treemacs/src/scripts/treemacs-find-ignored-files.py

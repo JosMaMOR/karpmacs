@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/vertico/extensions/vertico-repeat.el

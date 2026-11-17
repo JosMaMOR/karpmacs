@@ -1,0 +1,1 @@
+/home/karpa/.emacs.d/elpaca/sources/all-the-icons/all-the-icons.el
